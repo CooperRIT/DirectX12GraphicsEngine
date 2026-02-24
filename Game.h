@@ -3,6 +3,12 @@
 #include <d3d12.h>
 #include <wrl/client.h>
 
+#include <memory>
+#include <vector>
+#include "Camera.h"
+#include "GameEntity.h"
+#include "BufferStructs.h"
+
 class Game
 {
 public:
@@ -22,6 +28,7 @@ private:
 	// Initialization helper methods - feel free to customize, combine, remove, etc.
 	void CreateRootSigAndPipelineState();
 	void CreateGeometry();
+	void Initalize();
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
@@ -41,6 +48,10 @@ private:
 	D3D12_VIEWPORT viewport{};
 	D3D12_RECT scissorRect{};
 
+	//Player Variabes
+	std::shared_ptr<FPSCamera> camera;
+	std::vector<std::shared_ptr<GameEntity>> entities;
 
+	//Asset Path
 };
 
