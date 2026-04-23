@@ -5,6 +5,7 @@
 
 #include "Mesh.h"
 #include "Graphics.h"
+#include "RayTracing.h"
 
 using namespace DirectX;
 
@@ -279,8 +280,8 @@ D3D12_INDEX_BUFFER_VIEW Mesh::GetIndexBufferView()
 	return indexBufferView;
 }
 const char* Mesh::GetName() { return name; }
-unsigned int Mesh::GetIndexCount() { return numIndices; }
-unsigned int Mesh::GetVertexCount() { return numVertices; }
+size_t Mesh::GetIndexCount() { return numIndices; }
+size_t Mesh::GetVertexCount() { return numVertices; }
 
 
 // --------------------------------------------------------
@@ -295,25 +296,34 @@ unsigned int Mesh::GetVertexCount() { return numVertices; }
 void Mesh::CreateBuffers(Vertex* vertArray, size_t numVerts, unsigned int* indexArray, size_t numIndices)
 {
 	// Save the counts
-	this->numIndices = (unsigned int)numIndices;
-	this->numVertices = (unsigned int)numVerts;
+	this->numIndices = numIndices;
+	this->numVertices = numVerts;
 
-	//Maybe caluclate tangents here
-
-	//Create two buffers
-
-	//Static buffer = (how big is each piece of data, how many are there, array of data)
+	// Create the two buffers
 	vertexBuffer = Graphics::CreateStaticBuffer(sizeof(Vertex), numVerts, vertArray);
-
 	indexBuffer = Graphics::CreateStaticBuffer(sizeof(unsigned int), numIndices, indexArray);
 
-	//Set up view time! (These veiws are just structs of data so just plug in some data)
-	vertexBufferView.StrideInBytes = (UINT)sizeof(Vertex); // Size of each piece of data
-	vertexBufferView.SizeInBytes = (UINT)(sizeof(Vertex) * numVertices); // total DataSize
-	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress(); // location of this data on the GPU
+	// Set up the views
+	vertexBufferView.StrideInBytes = (UINT)sizeof(Vertex);
+	vertexBufferView.SizeInBytes = (UINT)(sizeof(Vertex) * numVerts);
+	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 
-	indexBufferView.Format = DXGI_FORMAT_R32_UINT; // What kind of data format will these indicies be in
-	indexBufferView.SizeInBytes = (UINT)(sizeof(unsigned int) * numIndices); // total DataSize
-	indexBufferView.BufferLocation = indexBuffer->GetGPUVirtualAddress(); // location of this data on the GPU
+	indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+	indexBufferView.SizeInBytes = (UINT)(sizeof(unsigned int) * numIndices);
+	indexBufferView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 
+	// Create the raytracing acceleration structure for this mesh
+	rayTracingData = RayTracing::CreateBottomLevelAccelerationStructureForMesh(this);
+}
+
+MeshRayTracingData Mesh::GetRayTracingData() { return rayTracingData; }
+
+Microsoft::WRL::ComPtr<ID3D12Resource> Mesh::GetVertexBuffer()
+{
+	return vertexBuffer;
+}
+
+Microsoft::WRL::ComPtr<ID3D12Resource> Mesh::GetIndexBuffer()
+{
+	return indexBuffer;
 }
