@@ -9,6 +9,7 @@
 #include "Camera.h"
 #include "GameEntity.h"
 #include "BufferStructs.h"
+#include "Sky.h"
 
 class Game
 {
@@ -25,7 +26,17 @@ public:
 	void OnResize();
 
 private:
+
+	// Initialization helper methods - feel free to customize, combine, remove, etc.
+	void CreateRootSigAndPipelineState();
+	void CreateGeometry();
 	void Initalize();
+	void CreateLights();
+
+	// Note the usage of ComPtr below
+	//  - This is a smart pointer for objects that abide by the
+	//     Component Object Model, which DirectX objects do
+	//  - More info here: https://github.com/Microsoft/DirectXTK/wiki/ComPtr
 
 	// Buffers to hold actual geometry data
 	// Pipeline
@@ -42,10 +53,10 @@ private:
 
 	//Player Variabes
 	std::shared_ptr<FPSCamera> camera;
-	//std::shared_ptr<Mesh> sphereMesh;
-	//std::shared_ptr<GameEntity> sphereEntity;
 	std::vector<std::shared_ptr<GameEntity>> entities;
-	//int lightCount;
-	//std::vector<Light> lights;
+	int lightCount;
+	std::vector<Light> lights;
+
+	std::shared_ptr<Sky> sky;
 };
 

@@ -48,7 +48,7 @@
     <ClCompile Include="Material.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RayTracing.cpp">
+    <ClCompile Include="Sky.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -92,7 +92,7 @@
     <ClInclude Include="Lights.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RayTracing.h">
+    <ClInclude Include="Sky.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -103,7 +103,10 @@
     <FxCompile Include="VertexShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="RayTracing.hlsl">
+    <FxCompile Include="SkyVS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="SkyPS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

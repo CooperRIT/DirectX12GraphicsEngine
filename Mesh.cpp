@@ -5,7 +5,6 @@
 
 #include "Mesh.h"
 #include "Graphics.h"
-#include "RayTracing.h"
 
 using namespace DirectX;
 
@@ -280,8 +279,9 @@ D3D12_INDEX_BUFFER_VIEW Mesh::GetIndexBufferView()
 	return indexBufferView;
 }
 const char* Mesh::GetName() { return name; }
-size_t Mesh::GetIndexCount() { return numIndices; }
-size_t Mesh::GetVertexCount() { return numVertices; }
+unsigned int Mesh::GetIndexCount() { return numIndices; }
+unsigned int Mesh::GetVertexCount() { return numVertices; }
+D3D12_GPU_DESCRIPTOR_HANDLE Mesh::GetVertexBufferDescriptorHandle() { return vbGPUDescriptorHandle; }
 
 
 // --------------------------------------------------------
@@ -299,6 +299,8 @@ void Mesh::CreateBuffers(Vertex* vertArray, size_t numVerts, unsigned int* index
 	this->numIndices = numIndices;
 	this->numVertices = numVerts;
 
+	// Calculate the tangents before copying to buffer
+
 	// Create the two buffers
 	vertexBuffer = Graphics::CreateStaticBuffer(sizeof(Vertex), numVerts, vertArray);
 	indexBuffer = Graphics::CreateStaticBuffer(sizeof(unsigned int), numIndices, indexArray);
@@ -312,18 +314,17 @@ void Mesh::CreateBuffers(Vertex* vertArray, size_t numVerts, unsigned int* index
 	indexBufferView.SizeInBytes = (UINT)(sizeof(unsigned int) * numIndices);
 	indexBufferView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 
-	// Create the raytracing acceleration structure for this mesh
-	rayTracingData = RayTracing::CreateBottomLevelAccelerationStructureForMesh(this);
-}
+	// Set up an SRV for the vertex buffer
+	D3D12_CPU_DESCRIPTOR_HANDLE vbCPU; // Need this for creating the SRV below
+	Graphics::ReserveDescriptorHeapSlot(&vbCPU, &vbGPUDescriptorHandle);
 
-MeshRayTracingData Mesh::GetRayTracingData() { return rayTracingData; }
-
-Microsoft::WRL::ComPtr<ID3D12Resource> Mesh::GetVertexBuffer()
-{
-	return vertexBuffer;
-}
-
-Microsoft::WRL::ComPtr<ID3D12Resource> Mesh::GetIndexBuffer()
-{
-	return indexBuffer;
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Buffer.FirstElement = 0;
+	srvDesc.Buffer.NumElements = (unsigned int)numVerts;
+	srvDesc.Buffer.StructureByteStride = sizeof(Vertex);
+	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+	Graphics::Device->CreateShaderResourceView(vertexBuffer.Get(), &srvDesc, vbCPU);
 }

@@ -4,8 +4,6 @@
 #include "Input.h"
 #include "PathHelpers.h"
 #include "Window.h"
-#include "BufferStructs.h"
-#include "RayTracing.h"
 
 #include <DirectXMath.h>
 
@@ -13,150 +11,18 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #include <d3dcompiler.h>
 
-//Useful define from teacher's github
-#define RandomRange(min, max) (float)rand() / RAND_MAX * (max - min) + min
-
 // For the DirectX Math library
 using namespace DirectX;
 
+#define RandomRange(min, max) (float)rand() / RAND_MAX * (max - min) + min
+
+// --------------------------------------------------------
+// The constructor is called after the window and graphics API
+// are initialized but before the game loop begins
+// --------------------------------------------------------
 Game::Game()
 {
 	Initalize();
-}
-
-
-// --------------------------------------------------------
-// Called once per program, the window and graphics API
-// are initialized but before the game loop begins
-// --------------------------------------------------------
-void Game::Initalize()
-{
-	// Check for DXR support and setup required API objects
-	RayTracing::Initialize(
-		Window::Width(),
-		Window::Height(),
-		FixPath(L"RayTracing.cso"));
-
-	// Reserve a descriptor slot for ImGui's font texture
-	D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
-	D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle;
-	Graphics::ReserveDescriptorHeapSlot(&cpuHandle, &gpuHandle);
-
-
-	// Create the camera
-	camera = std::make_shared<FPSCamera>(
-		XMFLOAT3(0.0f, 0.0f, -5.0f),	// Position
-		5.0f,					// Move speed
-		0.002f,					// Look speed
-		XM_PIDIV4,				// Field of view
-		Window::AspectRatio(),  // Aspect ratio
-		0.01f,					// Near clip
-		100.0f,					// Far clip
-		CameraProjectionType::Perspective);
-
-	// Create materials
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState{};
-	std::shared_ptr<Material> greyMat = std::make_shared<Material>(pipelineState, XMFLOAT3(0.5f, 0.5f, 0.5f));
-	std::shared_ptr<Material> lightGreyMat = std::make_shared<Material>(pipelineState, XMFLOAT3(0.9f, 0.9f, 1));
-
-
-	std::shared_ptr<Material> cobblestone = std::make_shared<Material>(pipelineState, XMFLOAT3(1, 1, 1));
-	std::shared_ptr<Material> bronze = std::make_shared<Material>(pipelineState, XMFLOAT3(1, 1, 1));
-	std::shared_ptr<Material> bricks = std::make_shared<Material>(pipelineState, XMFLOAT3(1, 1, 1));
-
-	//Assign and load materials
-	UINT cobblestoneAlbedo = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/cobblestone_albedo.png").c_str());
-	UINT cobblestoneNormals = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/cobblestone_normals.png").c_str());
-	UINT cobblestoneRoughness = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/cobblestone_roughness.png").c_str());
-	UINT cobblestoneMetal = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/cobblestone_metal.png").c_str());
-
-	UINT bronzeAlbedo = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bronze_albedo.png").c_str());
-	UINT bronzeNormals = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bronze_normals.png").c_str());
-	UINT bronzeRoughness = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bronze_roughness.png").c_str());
-	UINT bronzeMetal = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bronze_metal.png").c_str());
-
-	UINT bricksAlbedo = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bricks_albedo.jpg").c_str());
-	UINT bricksNormals = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bricks_normals.jpg").c_str());
-	UINT bricksRoughness = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bricks_roughness.jpg").c_str());
-	UINT bricksMetal = Graphics::LoadTexture(FixPath(L"../../Assets/PBR/bricks_metal.jpg").c_str());
-
-	cobblestone->SetAlbedoIndex(cobblestoneAlbedo);
-	cobblestone->SetNormalMapIndex(cobblestoneNormals);
-	cobblestone->SetRoughnessIndex(cobblestoneRoughness);
-	cobblestone->SetMetalnessIndex(cobblestoneMetal);
-
-	bronze->SetAlbedoIndex(bronzeAlbedo);
-	bronze->SetNormalMapIndex(bronzeNormals);
-	bronze->SetRoughnessIndex(bronzeRoughness);
-	bronze->SetMetalnessIndex(bronzeMetal);
-
-	bricks->SetAlbedoIndex(bricksAlbedo);
-	bricks->SetNormalMapIndex(bricksNormals);
-	bricks->SetRoughnessIndex(bricksRoughness);
-	bricks->SetMetalnessIndex(bricksMetal);
-
-
-	// Load mesh(es)
-	std::shared_ptr<Mesh> cubeMesh = std::make_shared<Mesh>("Cube", FixPath(L"../../Assets/Meshes/cube.obj").c_str());
-	std::shared_ptr<Mesh> helix = std::make_shared<Mesh>("Helix", FixPath(L"../../Assets/Meshes/helix.obj").c_str());
-	std::shared_ptr<Mesh> sphereMesh = std::make_shared<Mesh>("Sphere", FixPath(L"../../Assets/Meshes/sphere.obj").c_str());
-
-	// Floor
-	std::shared_ptr<GameEntity> floor = std::make_shared<GameEntity>(cubeMesh, greyMat);
-	floor->GetTransform()->SetScale(50);
-	floor->GetTransform()->SetPosition(0, -51, 0);
-	entities.push_back(floor);
-
-	// Spinning helix
-	std::shared_ptr<GameEntity> t = std::make_shared<GameEntity>(helix, lightGreyMat);
-	t->GetTransform()->SetScale(2);
-	t->GetTransform()->SetPosition(0, 3, 0);
-	entities.push_back(t);
-
-	for (int i = 0; i < 15; i++)
-	{
-		std::shared_ptr<Material> mat;
-		float randMat = RandomRange(0, 1);
-		if (randMat > 0.95f) mat = bronze;
-		else if (randMat > 0.75f) mat = cobblestone;
-		else if (randMat > 0.5f) mat = bronze;
-		else if (randMat > 0.2f) mat = bricks;
-		else mat = std::make_shared<Material>(
-			pipelineState,
-			XMFLOAT3(
-				RandomRange(0.0f, 1.0f),
-				RandomRange(0.0f, 1.0f),
-				RandomRange(0.0f, 1.0f)),
-			XMFLOAT2(1, 1),
-			XMFLOAT2(0, 0),
-			RandomRange(0.0f, 1.0f));
-
-		float scale = RandomRange(0.25f, 1.0f);
-
-		std::shared_ptr<GameEntity> sphereEnt = std::make_shared<GameEntity>(sphereMesh, mat);
-		sphereEnt->GetTransform()->SetScale(scale);
-		sphereEnt->GetTransform()->SetPosition(
-			RandomRange(-6, 6),
-			-1 + scale,
-			RandomRange(-6, 6));
-
-		entities.push_back(sphereEnt);
-	}
-
-	// Create the ray tracing entity data buffer now that we have a scene
-	RayTracing::CreateEntityDataBuffer(entities);
-
-	// Once we have all of the BLASs ready, we can make a TLAS
-	RayTracing::CreateTopLevelAccelerationStructureForScene(entities);
-
-	// Finalize any initialization and wait for the GPU
-	// before proceeding to the game loop
-	Graphics::CloseAndExecuteCommandList();
-	Graphics::WaitForGPU();
-	Graphics::ResetAllocatorAndCommandList(0);
-
-
-	
 }
 
 
@@ -173,17 +39,304 @@ Game::~Game()
 }
 
 // --------------------------------------------------------
+// Loads the two basic shaders, then creates the root signature
+// and pipeline state object for our very basic demo.
+// --------------------------------------------------------
+void Game::CreateRootSigAndPipelineState()
+{
+	// Blobs to hold raw shader byte code used in several steps below
+	Microsoft::WRL::ComPtr<ID3DBlob> vertexShaderByteCode;
+	Microsoft::WRL::ComPtr<ID3DBlob> pixelShaderByteCode;
+
+	// Load shaders
+	{
+		// Read our compiled vertex shader code into a blob
+		// - Essentially just "open the file and plop its contents here"
+		D3DReadFileToBlob(FixPath(L"VertexShader.cso").c_str(), vertexShaderByteCode.GetAddressOf());
+		D3DReadFileToBlob(FixPath(L"PixelShader.cso").c_str(), pixelShaderByteCode.GetAddressOf());
+	}
+
+	// Root Signature
+	{
+		// Create the root parameters
+		D3D12_ROOT_PARAMETER rootParams[1] = {};
+
+		// Root params for descriptor indices
+		rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		rootParams[0].Constants.Num32BitValues = sizeof(DrawDescriptorIndices) / sizeof(unsigned int);
+		rootParams[0].Constants.RegisterSpace = 0;
+		rootParams[0].Constants.ShaderRegister = 0;
+
+		// Create a single static sampler (available to all pixel shaders at the same slot)
+		// Note: This is in lieu of having materials have their own samplers for this demo
+		D3D12_STATIC_SAMPLER_DESC anisoWrap = {};
+		anisoWrap.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		anisoWrap.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		anisoWrap.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		anisoWrap.Filter = D3D12_FILTER_ANISOTROPIC;
+		anisoWrap.MaxAnisotropy = 16;
+		anisoWrap.MaxLOD = D3D12_FLOAT32_MAX;
+		anisoWrap.ShaderRegister = 0;  // register(s0)
+		anisoWrap.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+		D3D12_STATIC_SAMPLER_DESC samplers[] = { anisoWrap };
+
+		// Describe and serialize the root signature
+		D3D12_ROOT_SIGNATURE_DESC rootSig = {};
+		rootSig.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
+		rootSig.NumParameters = ARRAYSIZE(rootParams);
+		rootSig.pParameters = rootParams;
+		rootSig.NumStaticSamplers = ARRAYSIZE(samplers);
+		rootSig.pStaticSamplers = samplers;
+
+		ID3DBlob* serializedRootSig = 0;
+		ID3DBlob* errors = 0;
+
+		D3D12SerializeRootSignature(
+			&rootSig,
+			D3D_ROOT_SIGNATURE_VERSION_1,
+			&serializedRootSig,
+			&errors);
+
+		// Check for errors during serialization
+		if (errors != 0)
+		{
+			OutputDebugString((wchar_t*)errors->GetBufferPointer());
+		}
+
+		// Actually create the root sig
+		Graphics::Device->CreateRootSignature(
+			0,
+			serializedRootSig->GetBufferPointer(),
+			serializedRootSig->GetBufferSize(),
+			IID_PPV_ARGS(rootSignature.GetAddressOf()));
+	}
+
+	// Pipeline state
+	{
+		// Describe the pipeline state
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+
+		// -- Input assembler related ---
+		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		// Overall primitive topology type (triangle, line, etc.) is set here 
+		// IASetPrimTop() is still used to set list/strip/adj options
+		// See: https://docs.microsoft.com/en-us/windows/desktop/direct3d12/managing-graphics-pipeline-state-in-direct3d-12
+
+		// Root sig
+		psoDesc.pRootSignature = rootSignature.Get();
+
+		// -- Shaders (VS/PS) --- 
+		psoDesc.VS.pShaderBytecode = vertexShaderByteCode->GetBufferPointer();
+		psoDesc.VS.BytecodeLength = vertexShaderByteCode->GetBufferSize();
+		psoDesc.PS.pShaderBytecode = pixelShaderByteCode->GetBufferPointer();
+		psoDesc.PS.BytecodeLength = pixelShaderByteCode->GetBufferSize();
+
+		// -- Render targets ---
+		psoDesc.NumRenderTargets = 1;
+		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		psoDesc.SampleDesc.Count = 1;
+		psoDesc.SampleDesc.Quality = 0;
+
+		// -- States ---
+		psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+		psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+		psoDesc.RasterizerState.DepthClipEnable = true;
+
+		psoDesc.DepthStencilState.DepthEnable = true;
+		psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+		psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+
+		psoDesc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
+		psoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ZERO;
+		psoDesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+		psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+		// -- Misc ---
+		psoDesc.SampleMask = 0xffffffff;
+
+		// Create the pipe state object
+		Graphics::Device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(pipelineState.GetAddressOf()));
+	}
+
+	// Set up the viewport and scissor rectangle
+	{
+		// Set up the viewport so we render into the correct
+		// portion of the render target
+		viewport = {};
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = (float)Window::Width();
+		viewport.Height = (float)Window::Height();
+		viewport.MinDepth = 0.0f;
+		viewport.MaxDepth = 1.0f;
+
+		// Define a scissor rectangle that defines a portion of
+		// the render target for clipping.  This is different from
+		// a viewport in that it is applied after the pixel shader.
+		// We need at least one of these, but we're rendering to 
+		// the entire window, so it'll be the same size.
+		scissorRect = {};
+		scissorRect.left = 0;
+		scissorRect.top = 0;
+		scissorRect.right = Window::Width();
+		scissorRect.bottom = Window::Height();
+	}
+}
+
+
+// --------------------------------------------------------
+// Creates the geometry we're going to draw
+// --------------------------------------------------------
+void Game::CreateGeometry()
+{
+	//Load Textures
+	unsigned int cobblestoneAlbedo = Graphics::LoadTexture(FixPath(L"../../Assets/Textures/PBR/cobblestone_albedo.png").c_str());
+	unsigned int cobblestoneNormals = Graphics::LoadTexture(FixPath(L"../../Assets/Textures/PBR/cobblestone_normals.png").c_str());
+	unsigned int cobblestoneRoughness = Graphics::LoadTexture(FixPath(L"../../Assets/Textures/PBR/cobblestone_roughness.png").c_str());
+	unsigned int cobblestoneMetal = Graphics::LoadTexture(FixPath(L"../../Assets/Textures/PBR/cobblestone_metal.png").c_str());
+
+	std::shared_ptr<Material> cobbleMat = std::make_shared<Material>(pipelineState, XMFLOAT3(1, 1, 1));
+	cobbleMat->SetAlbedoIndex(cobblestoneAlbedo);
+	cobbleMat->SetNormalMapIndex(cobblestoneNormals);
+	cobbleMat->SetRoughnessIndex(cobblestoneRoughness);
+	cobbleMat->SetMetalnessIndex(cobblestoneMetal);
+
+	// Load meshes
+	std::shared_ptr<Mesh> cube = std::make_shared<Mesh>("Cube", FixPath(L"../../Assets/Meshes/cube.obj").c_str());
+	std::shared_ptr<Mesh> helix = std::make_shared<Mesh>("Helix", FixPath(L"../../Assets/Meshes/helix.obj").c_str());
+	std::shared_ptr<Mesh> cylinder = std::make_shared<Mesh>("Cylinder", FixPath(L"../../Assets/Meshes/cylinder.obj").c_str());
+
+	// Create entities
+	std::shared_ptr<GameEntity> entityCube = std::make_shared<GameEntity>(cube, cobbleMat);
+	entityCube->GetTransform()->SetPosition(5, 0, 0);
+
+	std::shared_ptr<GameEntity> entityHelix = std::make_shared<GameEntity>(helix, cobbleMat);
+	entityHelix->GetTransform()->SetPosition(0, 0, 0);
+
+	std::shared_ptr<GameEntity> entityCylinder = std::make_shared<GameEntity>(cylinder, cobbleMat);
+	entityCylinder->GetTransform()->SetPosition(-5, 0, 0);
+
+	// Add to list
+	entities.push_back(entityCube);
+	entities.push_back(entityHelix);
+	entities.push_back(entityCylinder);
+
+	// Load the sky
+	sky = std::make_shared<Sky>(
+		FixPath(L"../../Assets/Skies/right.png").c_str(),
+		FixPath(L"../../Assets/Skies/left.png").c_str(),
+		FixPath(L"../../Assets/Skies/up.png").c_str(),
+		FixPath(L"../../Assets/Skies/down.png").c_str(),
+		FixPath(L"../../Assets/Skies/front.png").c_str(),
+		FixPath(L"../../Assets/Skies/back.png").c_str(),
+		cube);
+}
+
+void Game::Initalize()
+{
+	// Seed random
+	srand((unsigned int)time(0));
+
+	lightCount = 16;
+	CreateLights();
+
+	CreateRootSigAndPipelineState();
+	CreateGeometry();
+
+	camera = std::make_shared<FPSCamera>(
+		XMFLOAT3(0.0f, 0.0f, -10.0f),	// Position
+		10.0f,					// Move speed
+		0.004f,					// Look speed
+		XM_PIDIV4,				// Field of view
+		Window::AspectRatio(),  // Aspect ratio
+		0.01f,					// Near clip
+		100.0f,					// Far clip
+		CameraProjectionType::Perspective);
+}
+
+void Game::CreateLights()
+{
+	// Reset
+	lights.clear();
+
+	// Setup directional lights
+	Light dir1 = {};
+	dir1.Type = LIGHT_TYPE_DIRECTIONAL;
+	dir1.Direction = XMFLOAT3(1, -1, 1);
+	dir1.Color = XMFLOAT3(0.8f, 0.8f, 0.8f);
+	dir1.Intensity = 1.0f;
+
+	Light dir2 = {};
+	dir2.Type = LIGHT_TYPE_DIRECTIONAL;
+	dir2.Direction = XMFLOAT3(-1, -0.25f, 0);
+	dir2.Color = XMFLOAT3(0.2f, 0.2f, 0.2f);
+	dir2.Intensity = 1.0f;
+
+	Light dir3 = {};
+	dir3.Type = LIGHT_TYPE_DIRECTIONAL;
+	dir3.Direction = XMFLOAT3(0, -1, 1);
+	dir3.Color = XMFLOAT3(0.2f, 0.2f, 0.2f);
+	dir3.Intensity = 1.0f;
+
+	// Add light to the list
+	lights.push_back(dir1);
+	lights.push_back(dir2);
+	lights.push_back(dir3);
+
+	// Create the rest of the lights
+	while (lights.size() < MAX_LIGHTS)
+	{
+		Light point = {};
+		point.Type = LIGHT_TYPE_POINT;
+		point.Position = XMFLOAT3(RandomRange(-15.0f, 15.0f), RandomRange(-2.0f, 5.0f), RandomRange(-15.0f, 15.0f));
+		point.Color = XMFLOAT3(RandomRange(0, 1), RandomRange(0, 1), RandomRange(0, 1));
+		point.Range = RandomRange(5.0f, 10.0f);
+		point.Intensity = RandomRange(0.1f, 3.0f);
+
+		// Add to the list
+		lights.push_back(point);
+	}
+
+	// Make sure we're exactly MAX_LIGHTS big
+	lights.resize(MAX_LIGHTS);
+}
+
+
+
+// --------------------------------------------------------
 // Handle resizing to match the new window size
 //  - Eventually, we'll want to update our 3D camera
 // --------------------------------------------------------
 void Game::OnResize()
 {
-	// Update the camera's projection to match the new size
-	if (camera)
-		camera->UpdateProjectionMatrix(Window::AspectRatio());
+	{
+		// Set up the viewport so we render into the correct
+		// portion of the render target
+		viewport = {};
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = (float)Window::Width();
+		viewport.Height = (float)Window::Height();
+		viewport.MinDepth = 0.0f;
+		viewport.MaxDepth = 1.0f;
+		// Define a scissor rectangle that defines a portion of
+		// the render target for clipping. This is different from
+		// a viewport in that it is applied after the pixel shader.
+		// We need at least one of these, but we're rendering to
+		// the entire window, so it'll be the same size.
+		scissorRect = {};
+		scissorRect.left = 0;
+		scissorRect.top = 0;
+		scissorRect.right = Window::Width();
+		scissorRect.bottom = Window::Height();
 
-	// Resize raytracing output texture
-	RayTracing::ResizeOutputUAV(Window::Width(), Window::Height());
+
+		camera->UpdateProjectionMatrix(Window::AspectRatio());
+		
+	}
 }
 
 
@@ -196,29 +349,10 @@ void Game::Update(float deltaTime, float totalTime)
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
 
-	// Update scene elements
 	camera->Update(deltaTime);
 
-	// Rotate the helix
-	entities[1]->GetTransform()->Rotate(deltaTime * 0.5f, deltaTime * 0.5f, deltaTime * 0.5f);
-
-	// Move the sphere entities (skipping cube and torus)
-	for (int i = 2; i < entities.size(); i++)
-	{
-		XMFLOAT3 pos = entities[i]->GetTransform()->GetPosition();
-		switch (i % 2)
-		{
-		case 0:
-			pos.x = sin((totalTime + i) * 0.4f) * 4;
-			break;
-
-		case 1:
-			pos.z = sin((totalTime + i) * 0.4f) * 4;
-			break;
-		}
-		entities[i]->GetTransform()->SetPosition(pos);
-	}
-
+	for (auto& e : entities)
+		e->GetTransform()->Rotate(0, deltaTime, 0);
 }
 
 
@@ -230,40 +364,159 @@ void Game::Draw(float deltaTime, float totalTime)
 	// Grab the current back buffer for this frame
 	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer = Graphics::BackBuffers[Graphics::SwapChainIndex()];
 
-	// Prepare a resoruce barrier for various transitions below
-	D3D12_RESOURCE_BARRIER rb = {};
-	rb.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	rb.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	rb.Transition.pResource = currentBackBuffer.Get();
-	rb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-	// Raytracing: Update the TLAS for the latest entity positions and then trace
+	// Clearing the render target
 	{
-		RayTracing::CreateTopLevelAccelerationStructureForScene(entities);
-		RayTracing::Raytrace(camera, currentBackBuffer);
-	}
-
-	// ImGui Render after all other scene objects
-	{
-		// The raytracing call above assumes we'll be presenting immediately afterwards,
-		// which leaves the back buffer in the PRESENT state.  We'll need to transition
-		// back to RENDER_TARGET so that ImGui can also render.  This is definitely
-		// an extra step, and could be generalized by not automatically transitioning
-		// to PRESENT at the end of raytracing.
+		// Transition the back buffer from present to render target
+		D3D12_RESOURCE_BARRIER rb = {};
+		rb.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		rb.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		rb.Transition.pResource = currentBackBuffer.Get();
 		rb.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		rb.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		rb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		Graphics::CommandList->ResourceBarrier(1, &rb);
 
-		// ImGui needs the descriptor heap (where its font texture lives) and the render target
-		Graphics::CommandList->SetDescriptorHeaps(1, Graphics::CBVSRVDescriptorHeap.GetAddressOf());
-		Graphics::CommandList->OMSetRenderTargets(1, &Graphics::RTVHandles[Graphics::SwapChainIndex()], true, 0);
+		// Background color for clearing
+		float color[] = { 0,0,0,1 };
+
+		// Clear the RTV
+		Graphics::CommandList->ClearRenderTargetView(
+			Graphics::RTVHandles[Graphics::SwapChainIndex()],
+			color,
+			0, 0); // No scissor rectangles
+
+		// Clear the depth buffer, too
+		Graphics::CommandList->ClearDepthStencilView(
+			Graphics::DSVHandle,
+			D3D12_CLEAR_FLAG_DEPTH,
+			1.0f,	// Max depth = 1.0f
+			0,		// Not clearing stencil, but need a value
+			0, 0);	// No scissor rects
 	}
+
+	// Rendering here!
+	{
+		// Set overall pipeline state
+		Graphics::CommandList->SetPipelineState(pipelineState.Get());
+
+		// Set constant buffer descriptor heap
+		Graphics::CommandList->SetDescriptorHeaps(1, Graphics::CBVSRVDescriptorHeap.GetAddressOf());
+
+		// Root sig
+		Graphics::CommandList->SetGraphicsRootSignature(rootSignature.Get());
+
+
+
+		// Set up other commands for rendering
+		Graphics::CommandList->OMSetRenderTargets(1, &Graphics::RTVHandles[Graphics::SwapChainIndex()], true, &Graphics::DSVHandle);
+		Graphics::CommandList->RSSetViewports(1, &viewport);
+		Graphics::CommandList->RSSetScissorRects(1, &scissorRect);
+		Graphics::CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		// Set up per-frame data
+		DrawDescriptorIndices drawData{};
+
+		// Per-frame vertex data
+		{
+			VertexShaderPerFrameData vsFrame{};
+			vsFrame.view = camera->GetView();
+			vsFrame.projection = camera->GetProjection();
+
+			D3D12_GPU_DESCRIPTOR_HANDLE cbHandleVS = Graphics::FillNextConstantBufferAndGetGPUDescriptorHandle(
+				(void*)(&vsFrame), sizeof(VertexShaderPerFrameData));
+
+			drawData.vsPerFrameCBIndex = Graphics::GetDescriptorIndex(cbHandleVS);
+		}
+
+		// Per-frame pixel data
+		{
+			PixelShaderPerFrameData psFrame{};
+			psFrame.cameraPosition = camera->GetTransform()->GetPosition();
+			psFrame.lightCount = lightCount;
+			memcpy(psFrame.lights, &lights[0], sizeof(Light) * lightCount);
+
+			D3D12_GPU_DESCRIPTOR_HANDLE cbHandlePS = Graphics::FillNextConstantBufferAndGetGPUDescriptorHandle(
+				(void*)(&psFrame), sizeof(PixelShaderPerFrameData));
+
+			drawData.psPerFrameCBIndex = Graphics::GetDescriptorIndex(cbHandlePS);
+		}
+
+		// Loop through the entities
+		for (auto& e : entities)
+		{
+			// Grab the material for this entity
+			std::shared_ptr<Material> mat = e->GetMaterial();
+
+			// Set the pipeline state for this material
+			{
+				Graphics::CommandList->SetPipelineState(mat->GetPipelineState().Get());
+			}
+
+			drawData.vsVertexBufferIndex = Graphics::GetDescriptorIndex(e->GetMesh()->GetVertexBufferDescriptorHandle());
+
+			// Set up the data we intend to use for drawing this entity
+			{
+				VertexShaderPerObjectData vsData = {};
+				vsData.world = e->GetTransform()->GetWorldMatrix();
+				vsData.worldInverseTranspose = e->GetTransform()->GetWorldInverseTransposeMatrix();
+
+				// Send this to a chunk of the constant buffer heap
+				// and grab the GPU handle for it so we can set it for this draw
+				D3D12_GPU_DESCRIPTOR_HANDLE cbHandleVS = Graphics::FillNextConstantBufferAndGetGPUDescriptorHandle(
+					(void*)(&vsData), sizeof(VertexShaderPerObjectData));
+
+				drawData.vsPerObjectCBIndex = Graphics::GetDescriptorIndex(cbHandleVS);
+			}
+
+			// Pixel shader data and cbuffer setup
+			{
+				PixelShaderPerObjectData psData = {};
+				psData.uvScale = mat->GetUVScale();
+				psData.uvOffset = mat->GetUVOffset();
+				psData.albedoIndex = mat->GetAlbedoIndex();
+				psData.normalMapIndex = mat->GetNormalMapIndex();
+				psData.roughnessIndex = mat->GetRoughnessIndex();
+				psData.metalnessIndex = mat->GetMetalnessIndex();
+
+				// Send this to a chunk of the constant buffer heap
+				// and grab the GPU handle for it so we can set it for this draw
+				D3D12_GPU_DESCRIPTOR_HANDLE cbHandlePS = Graphics::FillNextConstantBufferAndGetGPUDescriptorHandle(
+					(void*)(&psData), sizeof(PixelShaderPerObjectData));
+
+				drawData.psPerObjectCBIndex = Graphics::GetDescriptorIndex(cbHandlePS);
+			}
+
+			Graphics::CommandList->SetGraphicsRoot32BitConstants(
+				0,
+				sizeof(DrawDescriptorIndices) / sizeof(unsigned int),
+				&drawData,
+				0);
+
+			// Grab the mesh and its buffer views
+			std::shared_ptr<Mesh> mesh = e->GetMesh();
+			D3D12_INDEX_BUFFER_VIEW  ibv = mesh->GetIndexBufferView();
+
+			// Set the geometry
+			Graphics::CommandList->IASetIndexBuffer(&ibv);
+
+			// Draw
+			Graphics::CommandList->DrawIndexedInstanced((UINT)mesh->GetIndexCount(), 1, 0, 0, 0);
+		}
+	}
+
+	// Skybox after opaque objects
+	sky->Draw(camera);
 
 	// Present
 	{
 		// Transition back to present
+		D3D12_RESOURCE_BARRIER rb = {};
+		rb.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		rb.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		rb.Transition.pResource = currentBackBuffer.Get();
 		rb.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 		rb.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		rb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		Graphics::CommandList->ResourceBarrier(1, &rb);
 
 		// Must occur BEFORE present
@@ -274,11 +527,12 @@ void Game::Draw(float deltaTime, float totalTime)
 		Graphics::SwapChain->Present(
 			vsync ? 1 : 0,
 			vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
-		Graphics::AdvanceSwapChainIndex();
 
 		// Reset the command list & allocator for the upcoming frame
+		Graphics::AdvanceSwapChainIndex();
 		Graphics::ResetAllocatorAndCommandList(Graphics::SwapChainIndex());
-
 	}
 }
+
+
 

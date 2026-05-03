@@ -6,13 +6,6 @@
 
 #include "Vertex.h"
 
-struct MeshRayTracingData
-{
-	D3D12_GPU_DESCRIPTOR_HANDLE IndexBufferSRV{ };
-	D3D12_GPU_DESCRIPTOR_HANDLE VertexBufferSRV{ };
-	Microsoft::WRL::ComPtr<ID3D12Resource> BLAS;
-	unsigned int HitGroupIndex = 0;
-};
 
 class Mesh
 {
@@ -23,33 +16,33 @@ public:
 
 	// Getters for mesh data
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView();
+	D3D12_GPU_DESCRIPTOR_HANDLE GetVertexBufferDescriptorHandle();
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView();
-	Microsoft::WRL::ComPtr<ID3D12Resource> GetVertexBuffer();
-	Microsoft::WRL::ComPtr<ID3D12Resource> GetIndexBuffer();
 	const char* GetName();
-	size_t GetIndexCount();
-	size_t GetVertexCount();
-	MeshRayTracingData GetRayTracingData();
+	unsigned int GetIndexCount();
+	unsigned int GetVertexCount();
 
 private:
-	// D3D buffers
+	//Views
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer;
-
 	D3D12_INDEX_BUFFER_VIEW indexBufferView;
+
+
+	// D3D buffers
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBuffer;
 
-	// Total indices & vertices in this mesh
-	size_t numIndices;
-	size_t numVertices;
 
-	// Data specifically for ray tracing
-	MeshRayTracingData rayTracingData;
+	D3D12_GPU_DESCRIPTOR_HANDLE vbGPUDescriptorHandle;
+
+	// Total indices & vertices in this mesh
+	unsigned int numIndices;
+	unsigned int numVertices;
 
 	// Name (mostly for UI purposes)
 	const char* name;
 
-	// Helpers
+	// Helper for creating buffers (in the event we add more constructor overloads)
 	void CreateBuffers(Vertex* vertArray, size_t numVerts, unsigned int* indexArray, size_t numIndices);
 
 };

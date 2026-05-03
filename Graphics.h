@@ -1,10 +1,10 @@
 #pragma once
 
 #include <Windows.h>
-#include <d3d12.h>
 #include <dxgi1_6.h>
 #include <string>
 #include <wrl/client.h>
+#include <d3d12.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -12,7 +12,7 @@
 namespace Graphics
 {
 	// --- CONSTANTS ---
-	const unsigned int NumBackBuffers = 3;
+	const unsigned int NumBackBuffers = 2;
 
 	// Maximum number of constant buffers, assuming each buffer
 	// is 256 bytes or less.  Larger buffers are fine, but will
@@ -83,14 +83,6 @@ namespace Graphics
 		const wchar_t* front,
 		const wchar_t* back);
 	Microsoft::WRL::ComPtr<ID3D12Resource> CreateStaticBuffer(size_t dataStride, size_t dataCount, void* data);
-	Microsoft::WRL::ComPtr<ID3D12Resource> CreateBuffer(
-		UINT64 bufferSize,
-		D3D12_HEAP_TYPE heapType = D3D12_HEAP_TYPE_DEFAULT,
-		D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON,
-		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE,
-		UINT64 alignment = 0,
-		void* data = 0,
-		size_t dataSize = 0);
 
 	// Resource usage
 	D3D12_GPU_DESCRIPTOR_HANDLE FillNextConstantBufferAndGetGPUDescriptorHandle(
